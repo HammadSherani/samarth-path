@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import toast from "react-hot-toast";
@@ -11,12 +11,11 @@ import { verifyOTP, resendOTP } from "@/store/slices/auth";
 
 export default function VerifyOTPPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.auth);
 
-  const email = searchParams.get("email") || "";
-  
+  const email = "admin@gmail.com";
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timeLeft, setTimeLeft] = useState(60);
   const [canResend, setCanResend] = useState(false);
