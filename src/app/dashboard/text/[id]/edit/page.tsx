@@ -45,7 +45,7 @@ export default function EditTextPage() {
       }
     } catch (error: any) {
       toast.error("Failed to load content details");
-      router.push("/dashboard/content/text");
+      router.push("/dashboard/text");
     } finally {
       setLoading(false);
     }
@@ -74,7 +74,7 @@ export default function EditTextPage() {
 
       if (response.data.success) {
         toast.success("Content updated successfully!");
-        router.push("/dashboard/content/text");
+        router.push("/dashboard/text");
       }
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || "Failed to update content";
@@ -168,15 +168,16 @@ export default function EditTextPage() {
                   className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
                 />
               </div>
-              <div>
+              <div className="hidden">
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Unlock Time (24h Format)</label>
                 <input
                   required
                   type="time"
+
                   name="unlocksAt"
                   value={formData.unlocksAt}
                   onChange={handleChange}
-                  className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                  className="w-full h-11 px-4  rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
                 />
               </div>
             </div>
