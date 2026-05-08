@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { z } from "zod";
 import InputField from "@/components/ui/InputFeild";
@@ -28,12 +28,12 @@ type SetNewPasswordFormData = z.infer<typeof setNewPasswordSchema>;
 
 export default function SetNewPasswordPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const { loading } = useAppSelector((state) => state.auth);
   
-  const email = searchParams.get("email") || "";
-  const [showPassword, setShowPassword] = useState(false);
+  const email = "admin@gmail.com"
+    const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
