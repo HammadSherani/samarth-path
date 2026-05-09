@@ -4,36 +4,50 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Icon } from "@iconify/react";
 import toast from "react-hot-toast";
+import { useForm, useWatch } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as Yup from "yup";
 import axiosInstance from "@/config/axiosInstance";
 import { getConfig } from "@/store/slicer";
 import Button from "@/components/ui/Button";
 
+const schema = Yup.object({
+  title: Yup.string().min(2, "Min 2 characters").max(100, "Max 100 characters").required("Title is required"),
+  question: Yup.string().min(10, "Min 10 characters").max(500, "Max 500 characters").required("Question is required"),
+  option1: Yup.string().min(1, "Required").max(200, "Max 200 characters").required("Option 1 is required"),
+  option2: Yup.string().min(1, "Required").max(200, "Max 200 characters").required("Option 2 is required"),
+  option3: Yup.string().min(1, "Required").max(200, "Max 200 characters").required("Option 3 is required"),
+  option4: Yup.string().min(1, "Required").max(200, "Max 200 characters").required("Option 4 is required"),
+  correctOptionId: Yup.string().oneOf(["1", "2", "3", "4"]).required("Select correct option"),
+  explanation: Yup.string().max(500, "Max 500 characters").optional(),
+  scheduledDate: Yup.string().required("Publish date is required"),
+  isActive: Yup.string().oneOf(["true", "false"]).required(),
+});
+
+type FormValues = Yup.InferType<typeof schema>;
+
 export default function EditQuizPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id;
-
+  const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    question: "",
-    options: [
-      { id: "1", text: "" },
-      { id: "2", text: "" },
-      { id: "3", text: "" },
-      { id: "4", text: "" },
-    ],
-    correctOptionId: "1",
-    explanation: "",
-    timerSeconds: 180,
-    scheduledDate: "",
-    unlocksAt: "14:00",
-    isActive: true,
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: yupResolver(schema as any),
+    defaultValues: {
+      correctOptionId: "1",
+      isActive: "true",
+    },
   });
 
-  // ─── Fetch Existing Quiz Data ─────────────────────────────────────────────
+  const correctOptionId = useWatch({ control, name: "correctOptionId" });
+
   const fetchQuizDetails = useCallback(async () => {
     try {
       const response = await axiosInstance.get(`/daily-content/quiz/${id}`, getConfig());
@@ -41,82 +55,86 @@ export default function EditQuizPage() {
         const data = response.data.data;
         const quiz = data.quizContent;
 
-        setFormData({
+        // Flatten options array → individual fields
+        const opts: Record<string, string> = {};
+        (quiz?.options || []).forEach((opt: { id: string; text: string }) => {
+          opts[`option${opt.id}`] = opt.text;
+        });
+
+        reset({
           title: quiz?.title || "",
           question: quiz?.question || "",
-          options: quiz?.options || [
-            { id: "1", text: "" },
-            { id: "2", text: "" },
-            { id: "3", text: "" },
-            { id: "4", text: "" },
-          ],
+          option1: opts["option1"] || "",
+          option2: opts["option2"] || "",
+          option3: opts["option3"] || "",
+          option4: opts["option4"] || "",
           correctOptionId: quiz?.correctOptionId || "1",
           explanation: quiz?.explanation || "",
-          timerSeconds: quiz?.timerSeconds || 180,
           scheduledDate: data.date ? new Date(data.date).toISOString().split("T")[0] : "",
-          unlocksAt: data.unlocksAt || "14:00",
-          isActive: data.isActive,
+          isActive: String(data.isActive ?? true) as "true" | "false",
         });
       }
-    } catch (error: any) {
+    } catch {
       toast.error("Failed to load quiz details");
       router.push("/dashboard/quiz");
     } finally {
       setLoading(false);
     }
-  }, [id, router]);
+  }, [id, router, reset]);
 
   useEffect(() => {
     if (id) fetchQuizDetails();
   }, [id, fetchQuizDetails]);
 
-  // ─── Event Handlers ───────────────────────────────────────────────────────
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleOptionChange = (index: number, value: string) => {
-    const updatedOptions = [...formData.options];
-    updatedOptions[index].text = value;
-    setFormData((prev) => ({ ...prev, options: updatedOptions }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Simple validation
-    if (formData.options.some(opt => opt.text.trim() === "")) {
-      return toast.error("Please fill all 4 options");
-    }
-
+  const onSubmit = async (values: FormValues) => {
     setUpdating(true);
     try {
-      const response = await axiosInstance.put(
-        `/daily-content/quiz/${id}`,
-        {
-            ...formData,
-            date: formData.scheduledDate // Backend usually expects 'date' for quiz
-        },
-        getConfig()
-      );
+      const payload = {
+        title: values.title,
+        question: values.question,
+        options: [
+          { id: "1", text: values.option1 },
+          { id: "2", text: values.option2 },
+          { id: "3", text: values.option3 },
+          { id: "4", text: values.option4 },
+        ],
+        correctOptionId: values.correctOptionId,
+        explanation: values.explanation || "",
+        timerSeconds: 180,
+        date: values.scheduledDate,
+        unlocksAt: "14:00",
+        isActive: values.isActive === "true",
+      };
 
+      const response = await axiosInstance.put(`/daily-content/quiz/${id}`, payload, getConfig());
       if (response.data.success) {
         toast.success("Quiz updated successfully!");
         router.push("/dashboard/quiz");
       }
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || "Failed to update quiz";
-      toast.error(errorMsg);
+      toast.error(error.response?.data?.message || "Failed to update quiz");
     } finally {
       setUpdating(false);
     }
   };
 
+  const ErrorMsg = ({ msg }: { msg?: string }) =>
+    msg ? <p className="text-red-500 text-xs mt-1">{msg}</p> : null;
+
+  const inputStyle = (hasError: boolean) =>
+    `w-full h-11 px-4 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-primary-500 ${hasError ? "border-red-400 bg-red-50" : "border-gray-200"}`;
+
+  const options = [
+    { id: "1", field: "option1" as const },
+    { id: "2", field: "option2" as const },
+    { id: "3", field: "option3" as const },
+    { id: "4", field: "option4" as const },
+  ];
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
       </div>
     );
   }
@@ -124,9 +142,9 @@ export default function EditQuizPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] p-6 lg:p-8">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
+            type="button"
             onClick={() => router.back()}
             className="p-2 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-sm"
           >
@@ -138,64 +156,62 @@ export default function EditQuizPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-5">
-            
+
             {/* Title */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Quiz Title</label>
               <input
-                required
                 type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                {...register("title")}
+                className={inputStyle(!!errors.title)}
+                placeholder="e.g., Daily GK Quiz"
               />
+              <ErrorMsg msg={errors.title?.message} />
             </div>
 
             {/* Question */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Question</label>
               <textarea
-                required
-                name="question"
+                {...register("question")}
                 rows={3}
-                value={formData.question}
-                onChange={handleChange}
-                className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none"
+                placeholder="Enter the quiz question here..."
+                className={`w-full p-4 rounded-xl border outline-none transition-all resize-none focus:ring-2 focus:ring-primary-500 ${errors.question ? "border-red-400 bg-red-50" : "border-gray-200"}`}
               />
+              <ErrorMsg msg={errors.question?.message} />
             </div>
 
             {/* Options Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {formData.options.map((option, index) => (
-                <div key={option.id}>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">Option {option.id}</label>
+              {options.map(({ id: optId, field }) => (
+                <div key={optId}>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1 ml-1">
+                    Option {optId}
+                  </label>
                   <div className="relative">
                     <input
-                      required
                       type="text"
-                      value={option.text}
-                      onChange={(e) => handleOptionChange(index, e.target.value)}
-                      className="w-full h-11 px-4 pr-10 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                      {...register(field)}
+                      placeholder={`Choice ${optId}`}
+                      className={`w-full h-11 px-4 pr-10 rounded-xl border outline-none transition-all focus:ring-2 focus:ring-primary-500 ${errors[field] ? "border-red-400 bg-red-50" : "border-gray-200"}`}
                     />
-                    {formData.correctOptionId === option.id && (
+                    {correctOptionId === optId && (
                       <Icon icon="mdi:check-circle" className="absolute right-3 top-3 text-emerald-500 w-5 h-5" />
                     )}
                   </div>
+                  <ErrorMsg msg={errors[field]?.message} />
                 </div>
               ))}
             </div>
 
-            {/* Correct Choice & Timer */}
+            {/* Correct Option & Timer */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Correct Option</label>
                 <select
-                  name="correctOptionId"
-                  value={formData.correctOptionId}
-                  onChange={handleChange}
+                  {...register("correctOptionId")}
                   className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
                 >
                   <option value="1">Option 1</option>
@@ -203,40 +219,34 @@ export default function EditQuizPage() {
                   <option value="3">Option 3</option>
                   <option value="4">Option 4</option>
                 </select>
+                <ErrorMsg msg={errors.correctOptionId?.message} />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Timer (Seconds)</label>
                 <input
-                  required
-                  disabled
                   type="number"
-                  name="timerSeconds"
-                  value={formData.timerSeconds}
-                  onChange={handleChange}
-                  className="w-full h-11 px-4 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                  disabled
+                  value={180}
+                  className="w-full h-11 px-4 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed rounded-xl border border-gray-200 outline-none"
                 />
               </div>
             </div>
 
-            {/* Scheduling */}
+            {/* Date & Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Publish Date</label>
                 <input
-                  required
                   type="date"
-                  name="scheduledDate"
-                  value={formData.scheduledDate}
-                  onChange={handleChange}
-                  className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none"
+                  {...register("scheduledDate")}
+                  className={inputStyle(!!errors.scheduledDate)}
                 />
+                <ErrorMsg msg={errors.scheduledDate?.message} />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Status</label>
                 <select
-                  name="isActive"
-                  value={String(formData.isActive)}
-                  onChange={(e) => setFormData(p => ({...p, isActive: e.target.value === "true"}))}
+                  {...register("isActive")}
                   className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none bg-white"
                 >
                   <option value="true">Active</option>
@@ -247,33 +257,24 @@ export default function EditQuizPage() {
 
             {/* Explanation */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Explanation</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Explanation <span className="text-gray-400 font-normal text-xs">(Optional)</span>
+              </label>
               <textarea
-                name="explanation"
+                {...register("explanation")}
                 rows={2}
-                value={formData.explanation}
-                onChange={handleChange}
-                placeholder="Explain the correct answer..."
-                className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 outline-none transition-all resize-none"
+                placeholder="Explain why the answer is correct..."
+                className={`w-full p-4 rounded-xl border outline-none transition-all resize-none focus:ring-2 focus:ring-primary-500 ${errors.explanation ? "border-red-400 bg-red-50" : "border-gray-200"}`}
               />
+              <ErrorMsg msg={errors.explanation?.message} />
             </div>
           </div>
 
-          {/* Buttons */}
           <div className="flex items-center justify-end gap-3">
-            <Button
-              variant="secondary"
-              type="button"
-              onClick={() => router.back()}
-              disabled={updating}
-            >
+            <Button variant="secondary" type="button" onClick={() => router.back()} disabled={updating}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              loading={updating}
-              icon="mdi:content-save-check"
-            >
+            <Button type="submit" loading={updating} icon="mdi:content-save-check">
               Save Changes
             </Button>
           </div>
