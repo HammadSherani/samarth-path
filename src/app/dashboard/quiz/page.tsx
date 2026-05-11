@@ -12,6 +12,29 @@ import SummaryCards from "@/components/ui/SummaryCards";
 import { CustomDropdown } from "@/components/ui/Dropdown";
 import SearchInput from "@/components/ui/SearchInput";
 import Button from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+
+function DeleteConfirmModal({ name, loading, onConfirm, onClose }: {
+  name: string; loading: boolean; onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+          <Icon icon="mdi:alert-circle-outline" className="w-7 h-7 text-red-500" />
+        </div>
+        <p className="text-sm text-gray-600">Permanently delete <span className="font-bold text-gray-900">"{name}"</span>? This cannot be undone.</p>
+      </div>
+      <div className="flex gap-3">
+        <button onClick={onClose} disabled={loading} className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+        <button onClick={onConfirm} disabled={loading} className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+          {loading ? <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />}
+          {loading ? "Deleting…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface QuizOption {
@@ -61,6 +84,9 @@ export default function QuizManagementPage() {
 
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500);
+  const [deleteTarget, setDeleteTarget] = useState<QuizItem | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [viewTarget, setViewTarget] = useState<QuizItem | null>(null);
 
   useEffect(() => {
     setQueryState((prev) => ({ ...prev, search: debouncedSearch, page: 1 }));
@@ -122,9 +148,17 @@ export default function QuizManagementPage() {
     }
   }, [queryState]);
 
-  useEffect(() => {
-    fetchQuizzes();
-  }, [fetchQuizzes]);
+  useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res = await axiosInstance.delete(`/daily-content/quiz/${deleteTarget._id}`, getConfig());
+      if (res.data.success) { toast.success("Quiz deleted"); setDeleteTarget(null); fetchQuizzes(); }
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? "Delete failed"); }
+    finally { setDeleteLoading(false); }
+  };
 
   // ─── Table Columns ────────────────────────────────────────────────────────
   const columns: Column<QuizItem>[] = [
@@ -190,24 +224,23 @@ export default function QuizManagementPage() {
       key: "actions",
       header: "Actions",
       cell: (item) => (
-        <div className="flex items-center gap-2">
-          {/* Edit Link */}
-          <Link
-            href={`/dashboard/quiz/${item._id}/edit`}
-            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            title="Edit Quiz"
-          >
-            <Icon icon="mdi:pencil-box-outline" className="w-5 h-5" />
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setViewTarget(item)} title="View Detail"
+            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200">
+            <Icon icon="mdi:eye-outline" className="w-4 h-4" />
+          </button>
+          <Link href={`/dashboard/quiz/${item._id}/edit`} title="Edit Quiz"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-200">
+            <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
           </Link>
-
-          {/* NEW: Analytics/Results Link */}
-          <Link
-            href={`/dashboard/quiz/results/${item._id}`}
-            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-            title="View Results"
-          >
-            <Icon icon="mdi:chart-box-outline" className="w-5 h-5" />
+          <Link href={`/dashboard/quiz/results/${item._id}`} title="View Results"
+            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-200">
+            <Icon icon="mdi:chart-box-outline" className="w-4 h-4" />
           </Link>
+          <button onClick={() => setDeleteTarget(item)} title="Delete"
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200">
+            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -272,6 +305,84 @@ export default function QuizManagementPage() {
           emptyDescription="Start by creating your first daily quiz."
         />
       </div>
+
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Quiz" maxWidth="max-w-sm">
+        {deleteTarget && (
+          <DeleteConfirmModal name={deleteTarget.quizContent?.title || "this quiz"}
+            loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />
+        )}
+      </Modal>
+
+      <Modal isOpen={!!viewTarget} onClose={() => setViewTarget(null)} title="Quiz Details" maxWidth="max-w-2xl">
+        {viewTarget && (
+          <div className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold text-gray-900 leading-tight">{viewTarget.quizContent?.title}</h2>
+                  <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+                    <span className="flex items-center gap-1.5"><Icon icon="mdi:calendar-outline" /> {formatPublishTime(viewTarget.date, viewTarget.unlocksAt).date}</span>
+                    <span className="flex items-center gap-1.5"><Icon icon="mdi:clock-outline" /> {formatPublishTime(viewTarget.date, viewTarget.unlocksAt).time}</span>
+                    <span className="flex items-center gap-1.5 text-orange-600"><Icon icon="mdi:timer-outline" /> {viewTarget.quizContent?.timerSeconds}s Timer</span>
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewTarget.isActive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+                  {viewTarget.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
+
+              <div className="p-5 bg-primary-50/30 rounded-2xl border border-primary-100/50">
+                <p className="text-xs font-bold text-primary-600 uppercase tracking-widest mb-2">Question</p>
+                <p className="text-gray-800 text-lg font-semibold leading-relaxed">{viewTarget.quizContent?.question}</p>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Options</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {viewTarget.quizContent?.options?.map((opt) => {
+                    const isCorrect = opt.id === viewTarget.quizContent.correctOptionId;
+                    return (
+                      <div key={opt._id} className={`p-4 rounded-xl border transition-all ${
+                        isCorrect 
+                          ? "bg-emerald-50 border-emerald-200 ring-1 ring-emerald-200" 
+                          : "bg-white border-gray-100"
+                      }`}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`text-sm font-medium ${isCorrect ? "text-emerald-900" : "text-gray-700"}`}>{opt.text}</span>
+                          {isCorrect && <Icon icon="mdi:check-circle" className="text-emerald-500 w-5 h-5 shrink-0" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon icon="mdi:information-outline" className="text-gray-400 w-4 h-4" />
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Explanation</p>
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed">{viewTarget.quizContent?.explanation || "No explanation provided."}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Likes</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.likesCount || 0}</p>
+                </div>
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Comments</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.commentsCount || 0}</p>
+                </div>
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Bookmarks</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.bookmarksCount || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

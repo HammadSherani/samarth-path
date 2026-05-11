@@ -39,6 +39,12 @@ type NavGroup = {
 };
 
 const navGroups: NavGroup[] = [
+ 
+    {
+    groupLabel: "Users",
+    groupIcon: ClipboardList,
+    link: "/dashboard/users"
+  },
   {
     groupLabel: "Text",
     groupIcon: TableOfContents,
@@ -182,7 +188,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       {group.groupLabel}
                     </span>
                   </div>
-                  <ChevronLeft
+                  {/* <ChevronLeft
                     size={14}
                     className={`transition-transform duration-200 ${
                       isOpen ? "rotate-180" : ""
@@ -191,7 +197,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         ? "text-primary-500"
                         : "text-gray-400"
                     }`}
-                  />
+                  /> */}
                 </button>
 
                 </Link>

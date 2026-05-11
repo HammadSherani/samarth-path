@@ -12,6 +12,29 @@ import SummaryCards from "@/components/ui/SummaryCards";
 import { CustomDropdown } from "@/components/ui/Dropdown";
 import SearchInput from "@/components/ui/SearchInput";
 import Button from "../../../components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
+
+function DeleteConfirmModal({ name, loading, onConfirm, onClose }: {
+  name: string; loading: boolean; onConfirm: () => void; onClose: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+          <Icon icon="mdi:alert-circle-outline" className="w-7 h-7 text-red-500" />
+        </div>
+        <p className="text-sm text-gray-600">Permanently delete <span className="font-bold text-gray-900">"{name}"</span>? This cannot be undone.</p>
+      </div>
+      <div className="flex gap-3">
+        <button onClick={onClose} disabled={loading} className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+        <button onClick={onConfirm} disabled={loading} className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2">
+          {loading ? <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" /> : <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />}
+          {loading ? "Deleting…" : "Delete"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 interface ContentItem {
@@ -39,23 +62,15 @@ export default function VideoManagementPage() {
   const [contentList, setContentList] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState<PaginationInfo>({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 10,
-    hasNextPage: false,
-    hasPrevPage: false,
+    currentPage: 1, totalPages: 1, totalItems: 0,
+    itemsPerPage: 10, hasNextPage: false, hasPrevPage: false,
   });
-
-  const [queryState, setQueryState] = useState({
-    page: 1,
-    limit: 10,
-    search: "",
-    status: "",
-  });
-
+  const [queryState, setQueryState] = useState({ page: 1, limit: 10, search: "", status: "" });
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 500);
+  const [deleteTarget, setDeleteTarget] = useState<ContentItem | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [viewTarget, setViewTarget] = useState<ContentItem | null>(null);
 
   useEffect(() => {
     setQueryState((prev) => ({ ...prev, search: debouncedSearch, page: 1 }));
@@ -116,9 +131,17 @@ export default function VideoManagementPage() {
     }
   }, [queryState]);
 
-  useEffect(() => {
-    fetchContent();
-  }, [fetchContent]);
+  useEffect(() => { fetchContent(); }, [fetchContent]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      const res = await axiosInstance.delete(`/daily-content/video/${deleteTarget._id}`, getConfig());
+      if (res.data.success) { toast.success("Video deleted"); setDeleteTarget(null); fetchContent(); }
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? "Delete failed"); }
+    finally { setDeleteLoading(false); }
+  };
 
   // ─── Table Columns ────────────────────────────────────────────────────────
   const columns: Column<ContentItem>[] = [
@@ -202,20 +225,19 @@ export default function VideoManagementPage() {
       key: "actions",
       header: "Actions",
       cell: (item) => (
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/dashboard/video/${item._id}/edit`}
-            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-          >
-            <Icon icon="mdi:pencil-box-outline" className="w-5 h-5" />
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setViewTarget(item)} title="View Detail"
+            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors border border-transparent hover:border-emerald-200">
+            <Icon icon="mdi:eye-outline" className="w-4 h-4" />
+          </button>
+          <Link href={`/dashboard/video/${item._id}/edit`} title="Edit"
+            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-transparent hover:border-blue-200">
+            <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
           </Link>
-          <a
-            href={item.videoContent?.videoUrl}
-            target="_blank"
-            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-          >
-            <Icon icon="mdi:eye-outline" className="w-5 h-5" />
-          </a>
+          <button onClick={() => setDeleteTarget(item)} title="Delete"
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200">
+            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -280,6 +302,77 @@ export default function VideoManagementPage() {
           emptyDescription="You haven't uploaded any videos yet or your search matched nothing."
         />
       </div>
+
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Video" maxWidth="max-w-sm">
+        {deleteTarget && (
+          <DeleteConfirmModal name={deleteTarget.videoContent?.title || "this video"}
+            loading={deleteLoading} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} />
+        )}
+      </Modal>
+
+      <Modal isOpen={!!viewTarget} onClose={() => setViewTarget(null)} title="Video Details" maxWidth="max-w-2xl">
+        {viewTarget && (
+          <div className="space-y-6">
+            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black shadow-lg border border-gray-100">
+              {viewTarget.videoContent?.videoUrl ? (
+                <video src={viewTarget.videoContent.videoUrl} controls poster={viewTarget.videoContent.thumbnail} className="w-full h-full" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center flex-col gap-2">
+                  <Icon icon="mdi:video-off-outline" className="w-12 h-12 text-gray-600" />
+                  <p className="text-sm text-gray-400 font-medium">Video URL not available</p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold text-gray-900 leading-tight">{viewTarget.videoContent?.title}</h2>
+                  <div className="flex items-center gap-4 text-xs text-gray-500 font-medium">
+                    <span className="flex items-center gap-1.5"><Icon icon="mdi:calendar-outline" /> {formatPublishTime(viewTarget.date, viewTarget.unlocksAt).date}</span>
+                    <span className="flex items-center gap-1.5"><Icon icon="mdi:clock-outline" /> {formatPublishTime(viewTarget.date, viewTarget.unlocksAt).time}</span>
+                  </div>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${viewTarget.isActive ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"}`}>
+                  {viewTarget.isActive ? "Live" : "Hidden"}
+                </span>
+              </div>
+
+              <div className="flex gap-2">
+                {viewTarget.videoContent?.hasListenOnlyMode && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-xl text-xs font-bold border border-amber-100">
+                    <Icon icon="mdi:headphones" className="w-4 h-4" /> Listen Only Mode
+                  </span>
+                )}
+                {viewTarget.videoContent?.isAutoMute && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-700 rounded-xl text-xs font-bold border border-gray-100">
+                    <Icon icon="mdi:volume-off" className="w-4 h-4" /> Auto Mute On
+                  </span>
+                )}
+              </div>
+
+              <div className="p-5 bg-gray-50/50 rounded-2xl border border-gray-100">
+                <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{viewTarget.videoContent?.description || "No description available."}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Likes</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.likesCount || 0}</p>
+                </div>
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Comments</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.commentsCount || 0}</p>
+                </div>
+                <div className="p-3 bg-white border border-gray-100 rounded-xl text-center shadow-sm">
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mb-1">Bookmarks</p>
+                  <p className="text-lg font-bold text-gray-900">{viewTarget.bookmarksCount || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
