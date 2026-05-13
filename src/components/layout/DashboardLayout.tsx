@@ -27,7 +27,7 @@ export default function DashboardLayout({ children }: Props) {
       <Topbar onMenuClick={() => setSidebarOpen(true)} />
 
       <ProtectedRoute allowedRoles={["admin"]}>
-        <main className="lg:ml-56 mt-16 lg:p-4 p-4">
+        <main className="lg:ml-56 mt-16 ">
           {children}
         </main>
       </ProtectedRoute>

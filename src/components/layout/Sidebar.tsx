@@ -39,8 +39,8 @@ type NavGroup = {
 };
 
 const navGroups: NavGroup[] = [
- 
-    {
+
+  {
     groupLabel: "Users",
     groupIcon: ClipboardList,
     link: "/dashboard/users"
@@ -54,12 +54,17 @@ const navGroups: NavGroup[] = [
     groupLabel: "Quizzes",
     groupIcon: Briefcase,
     link: "/dashboard/quiz"
-   
+
   },
   {
     groupLabel: "Videos",
     groupIcon: ClipboardList,
     link: "/dashboard/video"
+  },
+  {
+    groupLabel: "Consultants",
+    groupIcon: FileText,
+    link: "/dashboard/consultants"
   },
   // {
   //   groupLabel: "Finance",
@@ -141,11 +146,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <Link
             href="/dashboard"
             onClick={onClose}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-              pathname === "/dashboard"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${pathname === "/dashboard"
                 ? "bg-primary-50 text-primary-700 font-semibold"
                 : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-            }`}
+              }`}
           >
             <LayoutDashboard
               size={17}
@@ -167,28 +171,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             return (
               <div key={group.groupLabel} className="mt-1">
                 <Link href={group.link} >
-                <button
-                  // onClick={() => toggleGroup(group.groupLabel)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-200 group ${
-                    groupHasActive && !isOpen
-                      ? "bg-primary-50 text-primary-700"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <GroupIcon
-                      size={15}
-                      className={
-                        groupHasActive && !isOpen
-                          ? "text-primary-500"
-                          : "text-gray-400 group-hover:text-gray-500"
-                      }
-                    />
-                    <span className="text-xs font-semibold uppercase tracking-wider">
-                      {group.groupLabel}
-                    </span>
-                  </div>
-                  {/* <ChevronLeft
+                  <button
+                    // onClick={() => toggleGroup(group.groupLabel)}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-200 group ${groupHasActive && !isOpen
+                        ? "bg-primary-50 text-primary-700"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-gray-700"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <GroupIcon
+                        size={15}
+                        className={
+                          groupHasActive && !isOpen
+                            ? "text-primary-500"
+                            : "text-gray-400 group-hover:text-gray-500"
+                        }
+                      />
+                      <span className="text-xs font-semibold uppercase tracking-wider">
+                        {group.groupLabel}
+                      </span>
+                    </div>
+                    {/* <ChevronLeft
                     size={14}
                     className={`transition-transform duration-200 ${
                       isOpen ? "rotate-180" : ""
@@ -198,7 +201,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         : "text-gray-400"
                     }`}
                   /> */}
-                </button>
+                  </button>
 
                 </Link>
 
@@ -246,7 +249,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             );
           })}
 
-         
+
         </nav>
       </aside>
     </>

@@ -18,7 +18,7 @@ import SearchInput from "@/components/ui/SearchInput";
 
 interface Subscription {
   _id: string;
-  plan?: string;
+  planName?: string;
   status?: string;
   startDate?: string;
   endDate?: string;
@@ -283,7 +283,7 @@ function UserDetailModal({ userId, onClose, onStatusChange }: {
             <Icon icon="mdi:crown" className="w-4 h-4" /> Subscription
           </p>
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-xs text-primary-500 mb-0.5">Plan</p><p className="font-semibold text-primary-800 capitalize">{user.subscriptionID.plan || "—"}</p></div>
+            <div><p className="text-xs text-primary-500 mb-0.5">Plan</p><p className="font-semibold text-primary-800 capitalize">{user.subscriptionID.planName || "—"}</p></div>
             <div><p className="text-xs text-primary-500 mb-0.5">Status</p><p className="font-semibold text-primary-800 capitalize">{user.subscriptionID.status || "—"}</p></div>
             {user.subscriptionID.startDate && <div><p className="text-xs text-primary-500 mb-0.5">Start</p><p className="font-semibold text-primary-800">{new Date(user.subscriptionID.startDate).toLocaleDateString("en-GB")}</p></div>}
             {user.subscriptionID.endDate && <div><p className="text-xs text-primary-500 mb-0.5">Expires</p><p className="font-semibold text-primary-800">{new Date(user.subscriptionID.endDate).toLocaleDateString("en-GB")}</p></div>}
